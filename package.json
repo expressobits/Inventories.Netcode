@@ -1,0 +1,22 @@
+{
+    "name": "br.com.expressobits.inventories.netcode",
+    "displayName": "EB Inventories Extension for Netcode",
+    "version": "0.0.1-preview",
+    "unity": "2020.3",
+    "description": "Inventory system extension for unity netcode",
+    "keywords": [
+        "gameplay"
+    ],
+    "author": {
+        "name": "Expresso Bits"
+    },
+    "license": "MIT",
+    "homepage": "https://github.com/ExpressoBits/Inventories.Netcode",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ExpressoBits/Inventories.Netcode.git"
+    },
+    "bugs": {
+        "url": "https://github.com/ExpressoBits/Inventories.Netcode/issues"
+    }
+}

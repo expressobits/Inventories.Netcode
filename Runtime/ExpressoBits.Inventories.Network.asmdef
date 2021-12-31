@@ -1,0 +1,17 @@
+{
+    "name": "ExpressoBits.Inventories.Netcode",
+    "rootNamespace": "ExpressoBits.Inventories.Netcode",
+    "references": [
+        "GUID:453d7252c071c644ea4b841c693572ac",
+        "GUID:1491147abca9d7d4bb7105af628b223e"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
