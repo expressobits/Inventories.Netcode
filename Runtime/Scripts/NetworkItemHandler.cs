@@ -6,17 +6,17 @@ using UnityEngine;
 
 namespace ExpressoBits.Inventories.Netcode
 {
-    [RequireComponent(typeof(ItemObjectHandler))]
-    public class NetworkObjectHandler : NetworkBehaviour
+    [RequireComponent(typeof(ItemHandler))]
+    public class NetworkItemHandler : NetworkBehaviour
     {
 
-        public ItemObjectHandler ItemObjectHandler => itemObjectHandler;
+        public ItemHandler ItemObjectHandler => itemObjectHandler;
 
-        private ItemObjectHandler itemObjectHandler;
+        private ItemHandler itemObjectHandler;
 
         private void Awake()
         {
-            itemObjectHandler = GetComponent<ItemObjectHandler>();
+            itemObjectHandler = GetComponent<ItemHandler>();
             itemObjectHandler.OnDrop += Drop;
         }
 
