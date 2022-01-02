@@ -13,11 +13,75 @@ namespace ExpressoBits.Inventories.Netcode
 
         private NetworkList<uint> syncList;
         [SerializeField] private bool ownerWrite;
+        [SerializeField] private bool triggerOpenClientRpcEvent;
+        [SerializeField] private bool triggerCloseClientRpcEvent;
+        [SerializeField] private bool triggerItemAddClientRpcEvent;
+        [SerializeField] private bool triggerItemRemoveClientRpcEvent;
+
+        public Action OnClientOpen;
+        public Action OnClientClose;
+        public Container.ItemEvent OnClientItemAdd;
+        public Container.ItemEvent OnClientItemRemove;
 
         private void Awake()
         {
             container = GetComponent<Container>();
             syncList = new NetworkList<uint>();
+            if (IsServer)
+            {
+                container.OnOpen += OnOpen;
+                container.OnClose += OnClose;
+                container.OnItemAdd += OnItemAdd;
+                container.OnItemRemove += OnItemRemove;
+            }
+        }
+
+        private void OnOpen()
+        {
+            if(triggerOpenClientRpcEvent)
+            {
+                OpenClientRpc();
+            }
+        }
+
+        private void OnClose()
+        {
+            if(triggerCloseClientRpcEvent)
+            {
+                CloseClientRpc();
+            }
+        }
+
+        private void OnItemAdd(Item item, ushort amount)
+        {
+            if(triggerItemAddClientRpcEvent)
+            {
+                ItemAddClientRpc(item.ID, amount);
+            }
+        }
+
+        private void OnItemRemove(Item item, ushort amount)
+        {
+            if(triggerItemRemoveClientRpcEvent)
+            {
+                ItemRemoveClientRpc(item.ID, amount);
+            }
+        }
+
+        [ClientRpc]
+        private void ItemAddClientRpc(ushort itemId, ushort amount)
+        {
+            Item item = container.Database.GetItem(itemId);
+            if(item == null) return;
+            OnClientItemAdd?.Invoke(item, amount);
+        }
+
+        [ClientRpc]
+        private void ItemRemoveClientRpc(ushort itemId, ushort amount)
+        {
+            Item item = container.Database.GetItem(itemId);
+            if(item == null) return;
+            OnClientItemRemove?.Invoke(item, amount);
         }
 
         private void Update()
@@ -62,6 +126,18 @@ namespace ExpressoBits.Inventories.Netcode
                     i--;
                 }
             }
+        }
+
+        [ClientRpc]
+        private void OpenClientRpc()
+        {
+            OnClientOpen?.Invoke();
+        }
+
+        [ClientRpc]
+        private void CloseClientRpc()
+        {
+            OnClientClose?.Invoke();
         }
 
     }
