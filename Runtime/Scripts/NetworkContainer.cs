@@ -23,6 +23,8 @@ namespace ExpressoBits.Inventories.Netcode
         public Container.ItemEvent OnClientItemAdd;
         public Container.ItemEvent OnClientItemRemove;
 
+        private NetworkVariable<bool> isOpen;
+
         private void Awake()
         {
             container = GetComponent<Container>();
@@ -86,6 +88,21 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void Update()
         {
+            if((ownerWrite && IsOwner) || (!ownerWrite && IsServer))
+            {
+                if(isOpen.Value != container.IsOpen)
+                {
+                    isOpen.Value = container.IsOpen;
+                }
+            }
+            else
+            {
+                if(isOpen.Value != container.IsOpen)
+                {
+                    container.SetOpen(isOpen.Value);
+                }
+            }
+
             if ((ownerWrite && IsOwner) || (!ownerWrite && IsServer))
             {
                 for (int i = 0; i < container.Count; i++)
