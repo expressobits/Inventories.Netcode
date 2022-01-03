@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -18,6 +19,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         private ItemHandler itemHandler;
         private NetworkContainer defaultContainer;
+        private List<Container> openedContainers = new List<Container>();
 
         [SerializeField] private ClientRpcOptions triggerPickClientRpc;
         [SerializeField] private ClientRpcOptions triggerAddClientRpc;
@@ -79,6 +81,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void OnOpen(Container container)
         {
+            openedContainers.Add(container);
             if (triggerOpenClientRpc.Active)
             {
                 ClientRpcParams clientRpcParams = default;
@@ -101,6 +104,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void OnClose(Container container)
         {
+            openedContainers.Remove(container);
             if (triggerCloseClientRpc.Active)
             {
                 ClientRpcParams clientRpcParams = default;
@@ -179,6 +183,16 @@ namespace ExpressoBits.Inventories.Netcode
             itemHandler.Close(networkContainer.Container);
         }
 
+        [ServerRpc]
+        private void CloseAllContainersServerRpc()
+        {
+            List<Container> containers = new List<Container>(openedContainers);
+            foreach (var container in containers)
+            {
+                itemHandler.Close(container);
+            }
+        }
+
         [ClientRpc]
         private void OnCloseContainerClientRpc(NetworkBehaviourReference networkContainerReference, ClientRpcParams clientRpcParams = default)
         {
@@ -223,6 +237,16 @@ namespace ExpressoBits.Inventories.Netcode
         public void RequestSwapBetweenContainers(NetworkContainer fromNetworkContainer, int index, ushort amount, NetworkContainer toNetworkContainer)
         {
             SwapBetweenContainersServerRpc(fromNetworkContainer, index, amount, toNetworkContainer);
+        }
+
+        public void RequestOpenDefaultContainer()
+        {
+            OpenContainerServerRpc(DefaultContainer);
+        }
+
+        public void RequestCloseAllContainers()
+        {
+            CloseAllContainersServerRpc();
         }
 
         public void RequestOpenContainer(NetworkContainer networkContainer)
