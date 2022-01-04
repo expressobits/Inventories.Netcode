@@ -10,96 +10,113 @@ namespace ExpressoBits.Inventories.Netcode
         public Container Container => container;
 
         private Container container;
-
         private NetworkList<uint> syncList;
-        [SerializeField] private bool ownerWrite;
-        [SerializeField] private bool triggerOpenClientRpcEvent;
-        [SerializeField] private bool triggerCloseClientRpcEvent;
-        [SerializeField] private bool triggerItemAddClientRpcEvent;
-        [SerializeField] private bool triggerItemRemoveClientRpcEvent;
-
-        public Action OnClientOpen;
-        public Action OnClientClose;
-        public Container.ItemEvent OnClientItemAdd;
-        public Container.ItemEvent OnClientItemRemove;
-
         private NetworkVariable<bool> isOpen;
+        [SerializeField] private bool ownerWrite;
+        [SerializeField] private SyncRpcOptions syncItemAddEvent;
+        [SerializeField] private SyncRpcOptions syncItemRemoveEvent;
+        [SerializeField] private NetworkVariableReadPermission isOpenNetworkVariableReadPermission;
 
         private void Awake()
         {
+            isOpen = new NetworkVariable<bool>(isOpenNetworkVariableReadPermission, false);
             container = GetComponent<Container>();
             syncList = new NetworkList<uint>();
             if (IsServer)
             {
-                container.OnOpen += OnOpen;
-                container.OnClose += OnClose;
                 container.OnItemAdd += OnItemAdd;
                 container.OnItemRemove += OnItemRemove;
             }
         }
 
-        private void OnOpen()
+        private void OnEnable()
         {
-            if(triggerOpenClientRpcEvent)
-            {
-                OpenClientRpc();
-            }
+            if (IsServer) isOpen.Value = container.IsOpen;
+            isOpen.OnValueChanged += IsOpenValueChanged;
         }
 
-        private void OnClose()
+        private void OnDisable()
         {
-            if(triggerCloseClientRpcEvent)
+            isOpen.OnValueChanged -= IsOpenValueChanged;
+        }
+
+        private void IsOpenValueChanged(bool previousValue, bool newValue)
+        {
+            if (newValue)
             {
-                CloseClientRpc();
+                container.Open();
+            }
+            else
+            {
+                container.Close();
             }
         }
 
         private void OnItemAdd(Item item, ushort amount)
         {
-            if(triggerItemAddClientRpcEvent)
+            if (syncItemAddEvent.IsSync)
             {
-                ItemAddClientRpc(item.ID, amount);
+                ClientRpcParams clientRpcParams = default;
+                if (syncItemAddEvent.OnlyOwner)
+                {
+                    clientRpcParams = new ClientRpcParams
+                    {
+                        Send = new ClientRpcSendParams
+                        {
+                            TargetClientIds = new ulong[] { OwnerClientId }
+                        }
+                    };
+                }
+                ItemAddClientRpc(item.ID, amount, clientRpcParams);
             }
         }
 
         private void OnItemRemove(Item item, ushort amount)
         {
-            if(triggerItemRemoveClientRpcEvent)
+            if (syncItemRemoveEvent.IsSync)
             {
-                ItemRemoveClientRpc(item.ID, amount);
+                ClientRpcParams clientRpcParams = default;
+                if (syncItemRemoveEvent.OnlyOwner)
+                {
+                    clientRpcParams = new ClientRpcParams
+                    {
+                        Send = new ClientRpcSendParams
+                        {
+                            TargetClientIds = new ulong[] { OwnerClientId }
+                        }
+                    };
+                }
+                ItemRemoveClientRpc(item.ID, amount, clientRpcParams);
             }
         }
 
         [ClientRpc]
-        private void ItemAddClientRpc(ushort itemId, ushort amount)
+        private void ItemAddClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             Item item = container.Database.GetItem(itemId);
-            if(item == null) return;
-            OnClientItemAdd?.Invoke(item, amount);
+            if (item == null) return;
+            container.OnItemAdd?.Invoke(item, amount);
+            container.OnItemAddUnityEvent?.Invoke(item, amount);
         }
 
         [ClientRpc]
-        private void ItemRemoveClientRpc(ushort itemId, ushort amount)
+        private void ItemRemoveClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             Item item = container.Database.GetItem(itemId);
-            if(item == null) return;
-            OnClientItemRemove?.Invoke(item, amount);
+            if (item == null) return;
+            container.OnItemRemove?.Invoke(item, amount);
+            container.OnItemRemoveUnityEvent?.Invoke(item, amount);
         }
 
         private void Update()
         {
-            if((ownerWrite && IsOwner) || (!ownerWrite && IsServer))
+            if ((ownerWrite && IsOwner) || (!ownerWrite && IsServer))
             {
-                if(isOpen.Value != container.IsOpen)
+                if (isOpen.Value != container.IsOpen)
                 {
                     isOpen.Value = container.IsOpen;
-                }
-            }
-            else
-            {
-                if(isOpen.Value != container.IsOpen)
-                {
-                    container.SetOpen(isOpen.Value);
                 }
             }
 
@@ -143,18 +160,6 @@ namespace ExpressoBits.Inventories.Netcode
                     i--;
                 }
             }
-        }
-
-        [ClientRpc]
-        private void OpenClientRpc()
-        {
-            OnClientOpen?.Invoke();
-        }
-
-        [ClientRpc]
-        private void CloseClientRpc()
-        {
-            OnClientClose?.Invoke();
         }
 
     }

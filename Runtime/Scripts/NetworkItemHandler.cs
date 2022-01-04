@@ -11,21 +11,15 @@ namespace ExpressoBits.Inventories.Netcode
         public NetworkContainer DefaultContainer => defaultContainer;
         public ItemHandler ItemHandler => itemHandler;
 
-        public Action<NetworkContainer> OnClientOpen;
-        public Action<NetworkContainer> OnClientClose;
-        public Container.ItemEvent OnClientPick;
-        public Container.ItemEvent OnClientAdd;
-        public ItemHandler.ItemObjectEvent OnClientDrop;
-
         private ItemHandler itemHandler;
         private NetworkContainer defaultContainer;
         private List<Container> openedContainers = new List<Container>();
 
-        [SerializeField] private ClientRpcOptions triggerPickClientRpc;
-        [SerializeField] private ClientRpcOptions triggerAddClientRpc;
-        [SerializeField] private ClientRpcOptions triggerDropClientRpc;
-        [SerializeField] private ClientRpcOptions triggerOpenClientRpc;
-        [SerializeField] private ClientRpcOptions triggerCloseClientRpc;
+        [SerializeField] private SyncRpcOptions syncPickEvent;
+        [SerializeField] private SyncRpcOptions syncAddEvent;
+        [SerializeField] private SyncRpcOptions syncDropEvent;
+        [SerializeField] private SyncRpcOptions syncOpenEvent;
+        [SerializeField] private SyncRpcOptions syncCloseEvent;
 
         private void Awake()
         {
@@ -34,19 +28,22 @@ namespace ExpressoBits.Inventories.Netcode
             {
                 defaultContainer = networkContainer;
             }
-            itemHandler.OnDrop += OnDrop;
-            itemHandler.OnAdd += OnAdd;
-            itemHandler.OnPick += OnPick;
-            itemHandler.OnOpen += OnOpen;
-            itemHandler.OnClose += OnClose;
+            if (IsServer)
+            {
+                itemHandler.OnDrop += OnDrop;
+                itemHandler.OnAdd += OnAdd;
+                itemHandler.OnPick += OnPick;
+                itemHandler.OnOpen += OnOpen;
+                itemHandler.OnClose += OnClose;
+            }
         }
 
         private void OnPick(ItemObject itemObject)
         {
-            if (triggerPickClientRpc.Active)
+            if (syncPickEvent.IsSync)
             {
                 ClientRpcParams clientRpcParams = default;
-                if (triggerPickClientRpc.OnlyOwner)
+                if (syncPickEvent.OnlyOwner)
                 {
                     clientRpcParams = new ClientRpcParams
                     {
@@ -62,10 +59,10 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void OnAdd(Item item, ushort amount)
         {
-            if (triggerAddClientRpc.Active)
+            if (syncAddEvent.IsSync)
             {
                 ClientRpcParams clientRpcParams = default;
-                if (triggerAddClientRpc.OnlyOwner)
+                if (syncAddEvent.OnlyOwner)
                 {
                     clientRpcParams = new ClientRpcParams
                     {
@@ -81,11 +78,14 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void OnOpen(Container container)
         {
+            if (openedContainers.Contains(container)) return;
             openedContainers.Add(container);
-            if (triggerOpenClientRpc.Active)
+
+            if (!IsServer) return;
+            if (syncOpenEvent.IsSync)
             {
                 ClientRpcParams clientRpcParams = default;
-                if (triggerOpenClientRpc.OnlyOwner)
+                if (syncOpenEvent.OnlyOwner)
                 {
                     clientRpcParams = new ClientRpcParams
                     {
@@ -104,11 +104,14 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void OnClose(Container container)
         {
+            if (!openedContainers.Contains(container)) return;
             openedContainers.Remove(container);
-            if (triggerCloseClientRpc.Active)
+
+            if (!IsServer) return;
+            if (syncCloseEvent.IsSync)
             {
                 ClientRpcParams clientRpcParams = default;
-                if (triggerCloseClientRpc.OnlyOwner)
+                if (syncCloseEvent.OnlyOwner)
                 {
                     clientRpcParams = new ClientRpcParams
                     {
@@ -131,10 +134,10 @@ namespace ExpressoBits.Inventories.Netcode
             {
                 networkObject.Spawn(true);
 
-                if (triggerDropClientRpc.Active)
+                if (syncDropEvent.IsSync)
                 {
                     ClientRpcParams clientRpcParams = default;
-                    if (triggerDropClientRpc.OnlyOwner)
+                    if (syncDropEvent.OnlyOwner)
                     {
                         clientRpcParams = new ClientRpcParams
                         {
@@ -177,6 +180,12 @@ namespace ExpressoBits.Inventories.Netcode
         }
 
         [ServerRpc]
+        private void OpenDefaultContainerServerRpc()
+        {
+            itemHandler.OpenDefaultContainer();
+        }
+
+        [ServerRpc]
         private void CloseContainerServerRpc(NetworkBehaviourReference networkContainerReference, ClientRpcParams clientRpcParams = default)
         {
             if (!networkContainerReference.TryGet(out NetworkContainer networkContainer)) return;
@@ -196,37 +205,47 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void OnCloseContainerClientRpc(NetworkBehaviourReference networkContainerReference, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             if (!networkContainerReference.TryGet(out NetworkContainer networkContainer)) return;
-            OnClientClose?.Invoke(networkContainer);
+            itemHandler.OnClose?.Invoke(networkContainer.Container);
+            itemHandler.OnCloseUnityEvent?.Invoke(networkContainer.Container);
         }
 
         [ClientRpc]
         private void OnOpenContainerClientRpc(NetworkBehaviourReference networkContainerReference, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             if (!networkContainerReference.TryGet(out NetworkContainer networkContainer)) return;
-            OnClientOpen?.Invoke(networkContainer);
+            itemHandler.OnOpen?.Invoke(networkContainer.Container);
+            itemHandler.OnOpenUnityEvent?.Invoke(networkContainer.Container);
         }
 
         [ClientRpc]
         private void OnPickClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
-            Item item = ItemHandler.DefaultContainer.Database.GetItem(itemId);
-            OnClientPick?.Invoke(item, amount);
+            if (IsServer) return;
+            // TODO problem with item object without NetworkObject (Destroyed!)
+            //itemHandler.OnPick?.Invoke(item, amount);
+            //itemHandler.OnPickUnityEvent?.Invoke(item, amount);
         }
 
         [ClientRpc]
         private void OnDropClientRpc(NetworkObjectReference networkObjectReference, ClientRpcParams clientRpcParams = default)
         {
-            if(!networkObjectReference.TryGet(out NetworkObject networkObject)) return;
-            if(!networkObject.TryGetComponent(out ItemObject itemObject)) return;
-            OnClientDrop?.Invoke(itemObject);
+            if (IsServer) return;
+            if (!networkObjectReference.TryGet(out NetworkObject networkObject)) return;
+            if (!networkObject.TryGetComponent(out ItemObject itemObject)) return;
+            itemHandler.OnDrop?.Invoke(itemObject);
+            itemHandler.OnDropUnityEvent?.Invoke(itemObject);
         }
 
         [ClientRpc]
         private void OnAddClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             Item item = ItemHandler.DefaultContainer.Database.GetItem(itemId);
-            OnClientAdd?.Invoke(item, amount);
+            itemHandler.OnAdd?.Invoke(item, amount);
+            itemHandler.OnAddUnityEvent?.Invoke(item, amount);
         }
 
         public void RequestDropFromContainer(NetworkContainer networkContainer, int index, ushort amount = 1)
@@ -241,7 +260,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         public void RequestOpenDefaultContainer()
         {
-            OpenContainerServerRpc(DefaultContainer);
+            OpenDefaultContainerServerRpc();
         }
 
         public void RequestCloseAllContainers()

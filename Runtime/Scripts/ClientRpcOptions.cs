@@ -1,11 +1,9 @@
-using Unity.Netcode;
-
 namespace ExpressoBits.Inventories.Netcode
 {
     [System.Serializable]
-    public struct ClientRpcOptions
+    public struct SyncRpcOptions
     {
-        public bool Active;
+        public bool IsSync;
         public bool OnlyOwner;
     }
 }
