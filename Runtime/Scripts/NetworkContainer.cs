@@ -1,4 +1,3 @@
-using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -52,6 +51,7 @@ namespace ExpressoBits.Inventories.Netcode
             }
         }
 
+        #region Sync Events
         private void OnItemAdd(Item item, ushort amount)
         {
             if (syncItemAddEvent.IsSync)
@@ -89,7 +89,9 @@ namespace ExpressoBits.Inventories.Netcode
                 ItemRemoveClientRpc(item.ID, amount, clientRpcParams);
             }
         }
+        #endregion
 
+        #region Client Responses
         [ClientRpc]
         private void ItemAddClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
@@ -109,6 +111,7 @@ namespace ExpressoBits.Inventories.Netcode
             container.OnItemRemove?.Invoke(item, amount);
             container.OnItemRemoveUnityEvent?.Invoke(item, amount);
         }
+        #endregion
 
         private void Update()
         {

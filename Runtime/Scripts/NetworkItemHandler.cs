@@ -38,6 +38,7 @@ namespace ExpressoBits.Inventories.Netcode
             }
         }
 
+        #region Sync Methods
         private void OnPick(ItemObject itemObject)
         {
             if (syncPickEvent.IsSync)
@@ -151,7 +152,9 @@ namespace ExpressoBits.Inventories.Netcode
                 }
             }
         }
+        #endregion
 
+        #region Server RPCs
         [ServerRpc]
         private void DropFromContainerServerRpc(NetworkBehaviourReference networkContainerReference, int index, ushort amount)
         {
@@ -161,7 +164,7 @@ namespace ExpressoBits.Inventories.Netcode
         }
 
         [ServerRpc]
-        private void SwapBetweenContainersServerRpc(NetworkBehaviourReference fromNetworkContainerReference, int index, ushort amount, NetworkBehaviourReference toNetworkContainerReference)
+        private void MoveBetweenContainersServerRpc(NetworkBehaviourReference fromNetworkContainerReference, int index, ushort amount, NetworkBehaviourReference toNetworkContainerReference)
         {
             if (!fromNetworkContainerReference.TryGet(out NetworkContainer fromNetworkContainer)) return;
             if (!toNetworkContainerReference.TryGet(out NetworkContainer toNetworkContainer)) return;
@@ -169,7 +172,18 @@ namespace ExpressoBits.Inventories.Netcode
             Container fromContainer = fromNetworkContainer.Container;
             Container toContainer = toNetworkContainer.Container;
 
-            itemHandler.SwapBetweenContainers(fromContainer, index, amount, toContainer);
+            itemHandler.MoveBetweenContainers(fromContainer, index, amount, toContainer);
+        }
+
+        [ServerRpc]
+        private void SwapBetweenContainersServerRpc(NetworkBehaviourReference networkContainerReference, int index, NetworkBehaviourReference otherNetworkContainerReference, int otherIndex)
+        {
+            if (!networkContainerReference.TryGet(out NetworkContainer networkContainer)) return;
+            if (!otherNetworkContainerReference.TryGet(out NetworkContainer otherNetworkContainer)) return;
+
+            Container fromContainer = networkContainer.Container;
+            Container otherContainer = otherNetworkContainer.Container;
+            itemHandler.SwapBetweenContainers(fromContainer, index, otherContainer, otherIndex);
         }
 
         [ServerRpc]
@@ -201,7 +215,9 @@ namespace ExpressoBits.Inventories.Netcode
                 itemHandler.Close(container);
             }
         }
+        #endregion
 
+        #region Client Responses
         [ClientRpc]
         private void OnCloseContainerClientRpc(NetworkBehaviourReference networkContainerReference, ClientRpcParams clientRpcParams = default)
         {
@@ -247,15 +263,22 @@ namespace ExpressoBits.Inventories.Netcode
             itemHandler.OnAdd?.Invoke(item, amount);
             itemHandler.OnAddUnityEvent?.Invoke(item, amount);
         }
+        #endregion
 
+        #region Request From Client
         public void RequestDropFromContainer(NetworkContainer networkContainer, int index, ushort amount = 1)
         {
             DropFromContainerServerRpc(networkContainer, index, amount);
         }
 
-        public void RequestSwapBetweenContainers(NetworkContainer fromNetworkContainer, int index, ushort amount, NetworkContainer toNetworkContainer)
+        public void RequestMoveBetweenContainers(NetworkContainer fromNetworkContainer, int index, ushort amount, NetworkContainer toNetworkContainer)
         {
-            SwapBetweenContainersServerRpc(fromNetworkContainer, index, amount, toNetworkContainer);
+            MoveBetweenContainersServerRpc(fromNetworkContainer, index, amount, toNetworkContainer);
+        }
+
+        public void RequestSwapBetweenContainers(NetworkContainer networkContainer, int index, NetworkContainer otherNetworkContainer, int otherIndex)
+        {
+            SwapBetweenContainersServerRpc(networkContainer, index, otherNetworkContainer, otherIndex);
         }
 
         public void RequestOpenDefaultContainer()
@@ -277,5 +300,6 @@ namespace ExpressoBits.Inventories.Netcode
         {
             CloseContainerServerRpc(networkContainer);
         }
+        #endregion
     }
 }
