@@ -38,7 +38,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void ListChanged(NetworkListEvent<Crafting> changeEvent)
         {
-            switch(changeEvent.Type)
+            switch (changeEvent.Type)
             {
                 case NetworkListEvent<Crafting>.EventType.Add:
                     crafter.Add(changeEvent.Value);
@@ -124,6 +124,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void OnRequestCraftClientRpc(int indexOfRecipe, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             if (crafter.Recipes.Count <= indexOfRecipe) return;
             Recipe recipe = crafter.Recipes[indexOfRecipe];
             crafter.OnRequestCraft?.Invoke(recipe);
@@ -132,6 +133,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void OnCraftedClientRpc(int indexOfRecipe, ClientRpcParams clientRpcParams = default)
         {
+            if (IsServer) return;
             if (crafter.Recipes.Count <= indexOfRecipe) return;
             Recipe recipe = crafter.Recipes[indexOfRecipe];
             crafter.OnCrafted?.Invoke(recipe);
