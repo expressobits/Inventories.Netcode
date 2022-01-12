@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,11 +16,13 @@ namespace ExpressoBits.Inventories.Netcode
         [SerializeField] private SyncRpcOptions syncCraftedEvent;
         [SerializeField] private SyncRpcOptions syncAddCraftingEvent;
         [SerializeField] private SyncRpcOptions syncRemoveCraftingAtEvent;
-        private NetworkList<Crafting> syncCraftings = new NetworkList<Crafting>();
+        [SerializeField] private NetworkVariableReadPermission networkVariableReadPermissionCraftings = NetworkVariableReadPermission.OwnerOnly;
+        private NetworkList<Crafting> syncCraftings;
 
         private void Awake()
         {
             crafter = GetComponent<Crafter>();
+            syncCraftings = new NetworkList<Crafting>();
         }
 
         private void OnEnable()
@@ -148,11 +151,23 @@ namespace ExpressoBits.Inventories.Netcode
             crafter.Craft(recipe);
         }
 
+        [ServerRpc]
+        private void CancelCraftServerRpc(int indexOfCrafting)
+        {
+            crafter.CancelCraft(indexOfCrafting);
+        }
+
         public void RequestCraft(Recipe recipe)
         {
             int indexOfRecipe = crafter.Database.Recipes.IndexOf(recipe);
             if (indexOfRecipe < 0) return;
             CraftServerRpc(indexOfRecipe);
+        }
+
+        public void RequestCancelCraft(Crafting crafting)
+        {
+            int indexOfCrafting = Crafter.IndexOf(crafting);
+            CancelCraftServerRpc(indexOfCrafting);
         }
     }
 }
