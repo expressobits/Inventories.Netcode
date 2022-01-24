@@ -16,7 +16,6 @@ namespace ExpressoBits.Inventories.Netcode
         [SerializeField] private SyncRpcOptions syncCraftedEvent;
         [SerializeField] private SyncRpcOptions syncAddCraftingEvent;
         [SerializeField] private SyncRpcOptions syncRemoveCraftingAtEvent;
-        [SerializeField] private NetworkVariableReadPermission networkVariableReadPermissionCraftings = NetworkVariableReadPermission.OwnerOnly;
         private NetworkList<Crafting> syncCraftings;
 
         private void Awake()
@@ -34,13 +33,19 @@ namespace ExpressoBits.Inventories.Netcode
             }
             else
             {
-                syncCraftings.OnListChanged += ListChanged;
-                crafter.SetCanCraft(false);
+                crafter.SetCanFinishCraft(false);
             }
+            syncCraftings.OnListChanged += ListChanged;
+        }
+
+        private void OnDisable()
+        {
+            syncCraftings.OnListChanged -= ListChanged;
         }
 
         private void ListChanged(NetworkListEvent<Crafting> changeEvent)
         {
+            if(IsServer) return;
             switch (changeEvent.Type)
             {
                 case NetworkListEvent<Crafting>.EventType.Add:
