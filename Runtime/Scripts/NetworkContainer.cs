@@ -12,6 +12,7 @@ namespace ExpressoBits.Inventories.Netcode
         private Container container;
         private NetworkList<uint> syncList;
         private NetworkVariable<bool> isOpen;
+        private bool m_CachedIsServer;
         [SerializeField] private SyncRpcOptions syncItemAddEvent;
         [SerializeField] private SyncRpcOptions syncItemRemoveEvent;
         [SerializeField] private NetworkVariableReadPermission isOpenNetworkVariableReadPermission;
@@ -22,13 +23,23 @@ namespace ExpressoBits.Inventories.Netcode
             container = GetComponent<Container>();
             syncList = new NetworkList<uint>();
         }
-
-        private void OnEnable()
+        
+        public override void OnNetworkSpawn()
         {
-            if (IsServer) isOpen.Value = container.IsOpen;
+            m_CachedIsServer = IsServer;
+            if (m_CachedIsServer)
+            {
+                for (int i = 0; i < container.Count; i++)
+                {
+                    syncList.Add(container[i]);
+                }
+            }
+
+            if (m_CachedIsServer) isOpen.Value = container.IsOpen;
             isOpen.OnValueChanged += IsOpenValueChanged;
             syncList.OnListChanged += ListChanged;
-            if (IsServer)
+
+            if (m_CachedIsServer)
             {
                 container.OnItemAdd += OnItemAdd;
                 container.OnItemRemove += OnItemRemove;
@@ -40,7 +51,7 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void ListChanged(NetworkListEvent<uint> changeEvent)
         {
-            if(IsServer) return;
+            if (m_CachedIsServer) return;
             Slot slot;
             switch (changeEvent.Type)
             {
@@ -61,16 +72,46 @@ namespace ExpressoBits.Inventories.Netcode
                     break;
                 case NetworkListEvent<uint>.EventType.Value:
                     slot = container.ToSlot(changeEvent.Value);
-                    container[changeEvent.Index] = slot;
+                    if(container.Count > changeEvent.Index)
+                    {
+                        container[changeEvent.Index] = slot;
+                    }
+                    else
+                    {
+                        container.Add(slot);
+                    }
+                    break;
+                case NetworkListEvent<uint>.EventType.Full:
+                    UpdateAll();
                     break;
             }
         }
 
-        private void OnDisable()
+        private void UpdateAll()
+        {
+            for (int i = 0; i < syncList.Count; i++)
+            {
+                Slot slot = container.ToSlot(syncList[i]);
+                if(container.Count > i)
+                {
+                    container[i] = slot;
+                }
+                else
+                {
+                    container.Add(slot);
+                }
+            }
+            for (int i = syncList.Count; i < container.Count;)
+            {
+                container.RemoveAt(i);
+            }
+        }
+
+        public override void OnNetworkDespawn()
         {
             isOpen.OnValueChanged -= IsOpenValueChanged;
             syncList.OnListChanged -= ListChanged;
-            if (IsServer)
+            if (m_CachedIsServer)
             {
                 container.OnItemAdd -= OnItemAdd;
                 container.OnItemRemove -= OnItemRemove;
@@ -151,7 +192,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void ItemAddClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
-            if (IsServer) return;
+            if (m_CachedIsServer) return;
             Item item = container.Database.GetItem(itemId);
             if (item == null) return;
             container.OnItemAdd?.Invoke(item, amount);
@@ -161,7 +202,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void ItemRemoveClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
-            if (IsServer) return;
+            if (m_CachedIsServer) return;
             Item item = container.Database.GetItem(itemId);
             if (item == null) return;
             container.OnItemRemove?.Invoke(item, amount);
@@ -171,37 +212,12 @@ namespace ExpressoBits.Inventories.Netcode
 
         private void Update()
         {
-            if (IsServer)
+            if (m_CachedIsServer)
             {
                 if (isOpen.Value != container.IsOpen)
                 {
                     isOpen.Value = container.IsOpen;
                 }
-            }
-
-            if (IsServer)
-            {
-                // for (int i = 0; i < container.Count; i++)
-                // {
-                //     Slot slot = container.ToSlot(container[i]);
-                //     if (syncList.Count <= i)
-                //     {
-                //         syncList.Add(slot);
-                //     }
-                //     else
-                //     {
-                //         if (syncList[i] != slot) syncList[i] = slot;
-                //     }
-                // }
-                // for (int i = container.Count; i < syncList.Count; i++)
-                // {
-                //     syncList.RemoveAt(i);
-                //     i--;
-                // }
-            }
-            else
-            {
-                // Make with network events
             }
         }
 

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -17,6 +15,7 @@ namespace ExpressoBits.Inventories.Netcode
         [SerializeField] private SyncRpcOptions syncAddCraftingEvent;
         [SerializeField] private SyncRpcOptions syncRemoveCraftingAtEvent;
         private NetworkList<Crafting> syncCraftings;
+        private bool m_CachedIsServer;
 
         private void Awake()
         {
@@ -24,12 +23,16 @@ namespace ExpressoBits.Inventories.Netcode
             syncCraftings = new NetworkList<Crafting>();
         }
 
-        private void OnEnable()
+        public override void OnNetworkSpawn()
         {
-            if (IsServer)
+            m_CachedIsServer = IsServer;
+            if (m_CachedIsServer)
             {
                 crafter.OnRequestCraft += OnRequestCraft;
                 crafter.OnCrafted += OnCrafted;
+                crafter.OnAdd += AddCraft;
+                crafter.OnRemoveAt += RemoveAtCraft;
+                crafter.OnUpdate += UpdateCraft;
             }
             else
             {
@@ -38,14 +41,22 @@ namespace ExpressoBits.Inventories.Netcode
             syncCraftings.OnListChanged += ListChanged;
         }
 
-        private void OnDisable()
+        public override void OnNetworkDespawn()
         {
+            if (m_CachedIsServer)
+            {
+                crafter.OnRequestCraft -= OnRequestCraft;
+                crafter.OnCrafted -= OnCrafted;
+                crafter.OnAdd -= AddCraft;
+                crafter.OnRemoveAt -= RemoveAtCraft;
+                crafter.OnUpdate -= UpdateCraft;
+            }
             syncCraftings.OnListChanged -= ListChanged;
         }
 
         private void ListChanged(NetworkListEvent<Crafting> changeEvent)
         {
-            if(IsServer) return;
+            if(m_CachedIsServer) return;
             switch (changeEvent.Type)
             {
                 case NetworkListEvent<Crafting>.EventType.Add:
@@ -60,28 +71,19 @@ namespace ExpressoBits.Inventories.Netcode
             }
         }
 
-        private void Update()
+        private void AddCraft(Crafting crafting)
         {
-            if (IsServer)
-            {
-                for (int i = 0; i < crafter.CountOfCraftings; i++)
-                {
-                    Crafting crafting = crafter[i];
-                    if (syncCraftings.Count <= i)
-                    {
-                        syncCraftings.Add(crafting);
-                    }
-                    else
-                    {
-                        if (syncCraftings[i].Equals(crafting)) syncCraftings[i] = crafting;
-                    }
-                }
-                for (int i = crafter.CountOfCraftings; i < syncCraftings.Count; i++)
-                {
-                    syncCraftings.RemoveAt(i);
-                    i--;
-                }
-            }
+            syncCraftings.Add(crafting);
+        }
+
+        private void RemoveAtCraft(int index)
+        {
+            syncCraftings.RemoveAt(index);
+        }
+
+        private void UpdateCraft(int index)
+        {
+            syncCraftings[index] = crafter[index];
         }
 
         #region Sync Events
@@ -132,7 +134,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void OnRequestCraftClientRpc(int indexOfRecipe, ClientRpcParams clientRpcParams = default)
         {
-            if (IsServer) return;
+            if (m_CachedIsServer) return;
             if (crafter.Recipes.Count <= indexOfRecipe) return;
             Recipe recipe = crafter.Recipes[indexOfRecipe];
             crafter.OnRequestCraft?.Invoke(recipe);
@@ -141,7 +143,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ClientRpc]
         private void OnCraftedClientRpc(int indexOfRecipe, ClientRpcParams clientRpcParams = default)
         {
-            if (IsServer) return;
+            if (m_CachedIsServer) return;
             if (crafter.Recipes.Count <= indexOfRecipe) return;
             Recipe recipe = crafter.Recipes[indexOfRecipe];
             crafter.OnCrafted?.Invoke(recipe);
