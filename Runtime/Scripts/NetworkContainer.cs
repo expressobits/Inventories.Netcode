@@ -47,6 +47,7 @@ namespace ExpressoBits.Inventories.Netcode
                 container.OnRemoveAt += RemoveAt;
                 container.OnUpdate += UpdateSlot;
             }
+            UpdateAll();
         }
 
         private void ListChanged(NetworkListEvent<uint> changeEvent)
