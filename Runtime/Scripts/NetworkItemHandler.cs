@@ -187,14 +187,14 @@ namespace ExpressoBits.Inventories.Netcode
         }
 
         [ServerRpc]
-        private void SwapBetweenContainersServerRpc(NetworkBehaviourReference networkContainerReference, int index, NetworkBehaviourReference otherNetworkContainerReference, int otherIndex)
+        private void SwapBetweenContainersServerRpc(NetworkBehaviourReference networkContainerReference, int index, NetworkBehaviourReference otherNetworkContainerReference, int otherIndex, ushort amount)
         {
             if (!networkContainerReference.TryGet(out NetworkContainer networkContainer)) return;
             if (!otherNetworkContainerReference.TryGet(out NetworkContainer otherNetworkContainer)) return;
 
             Container fromContainer = networkContainer.Container;
             Container otherContainer = otherNetworkContainer.Container;
-            itemHandler.SwapBetweenContainers(fromContainer, index, otherContainer, otherIndex);
+            itemHandler.SwapBetweenContainers(fromContainer, index, otherContainer, otherIndex, amount);
         }
 
         [ServerRpc]
@@ -283,9 +283,9 @@ namespace ExpressoBits.Inventories.Netcode
             MoveBetweenContainersServerRpc(fromNetworkContainer, index, amount, toNetworkContainer);
         }
 
-        public void RequestSwapBetweenContainers(NetworkContainer networkContainer, int index, NetworkContainer otherNetworkContainer, int otherIndex)
+        public void RequestSwapBetweenContainers(NetworkContainer networkContainer, int index, NetworkContainer otherNetworkContainer, int otherIndex, ushort amount)
         {
-            SwapBetweenContainersServerRpc(networkContainer, index, otherNetworkContainer, otherIndex);
+            SwapBetweenContainersServerRpc(networkContainer, index, otherNetworkContainer, otherIndex, amount);
         }
 
         public void RequestOpenDefaultContainer()
