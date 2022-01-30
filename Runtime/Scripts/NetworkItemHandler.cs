@@ -8,11 +8,11 @@ namespace ExpressoBits.Inventories.Netcode
     [RequireComponent(typeof(ItemHandler))]
     public class NetworkItemHandler : NetworkBehaviour
     {
-        public NetworkContainer DefaultContainer => defaultContainer;
+        public NetworkContainer[] Containers => containers;
         public ItemHandler ItemHandler => itemHandler;
 
         private ItemHandler itemHandler;
-        private NetworkContainer defaultContainer;
+        private NetworkContainer[] containers;
         private bool m_CachedIsServer;
 
         [SerializeField] private SyncRpcOptions syncPickEvent;
@@ -24,9 +24,14 @@ namespace ExpressoBits.Inventories.Netcode
         private void Awake()
         {
             itemHandler = GetComponent<ItemHandler>();
-            if (itemHandler.DefaultContainer.TryGetComponent(out NetworkContainer networkContainer))
+            containers = new NetworkContainer[ItemHandler.Containers.Length];
+            for (int i = 0; i < itemHandler.Containers.Length; i++)
             {
-                defaultContainer = networkContainer;
+                Container container = itemHandler.Containers[i];
+                if (container.TryGetComponent(out NetworkContainer networkContainer))
+                {
+                    containers[i] = networkContainer;
+                }
             }
         }
 
@@ -207,7 +212,7 @@ namespace ExpressoBits.Inventories.Netcode
         [ServerRpc]
         private void OpenDefaultContainerServerRpc()
         {
-            itemHandler.OpenDefaultContainer();
+            itemHandler.OpenContainers();
         }
 
         [ServerRpc]
@@ -266,7 +271,7 @@ namespace ExpressoBits.Inventories.Netcode
         private void OnAddClientRpc(ushort itemId, ushort amount, ClientRpcParams clientRpcParams = default)
         {
             if (m_CachedIsServer) return;
-            Item item = ItemHandler.DefaultContainer.Database.GetItem(itemId);
+            Item item = ItemHandler.Database.GetItem(itemId);
             itemHandler.OnAdd?.Invoke(item, amount);
             itemHandler.OnAddUnityEvent?.Invoke(item, amount);
         }
